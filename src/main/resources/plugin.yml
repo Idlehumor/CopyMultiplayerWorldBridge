@@ -1,0 +1,11 @@
+name: ${project.name}
+main: de.promolitor.copymultiplayerworldbridge.CopyMultiplayerWorldBridge
+author: Idlehumor
+version: ${project.version}
+commands:
+    cmw:
+        description: Tool to download select chunks from the server to a local save file
+        usage: |
+            /<command> add |
+            /<command> dl added <save-name> |
+            /<command> dl radius <radius> <save-name>
