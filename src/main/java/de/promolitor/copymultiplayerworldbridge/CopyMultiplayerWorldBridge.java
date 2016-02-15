@@ -132,10 +132,10 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 			boolean isClaimed = true;
 			for(int[] cIds : chunkIds.get(player.getDisplayName())) {			
 				Claim claim = GriefPrevention.instance.dataStore.getClaimAt(new Location(player.getWorld(), cIds[0]*16, 0, cIds[1]*16), true, null);
-				if (claim == null || 
-						!(claim.getOwnerName().equals(player.getDisplayName()) || 
-						claim.getOwnerName().equals(player.getUniqueId().toString()) || 
-						claim.getOwnerName().equals(player.getDisplayName().toLowerCase()))) {
+				if (claim == null || (claim != null &&
+					!claim.getOwnerName().equals(player.getDisplayName()) && 
+					!claim.getOwnerName().equals(player.getUniqueId().toString()) && 
+					!claim.getOwnerName().equals(player.getDisplayName().toLowerCase()))) {
 					isClaimed = false;
 				}
 			}
