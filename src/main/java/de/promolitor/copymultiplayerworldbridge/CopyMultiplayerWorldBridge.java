@@ -94,7 +94,8 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 					String playerName = player.getDisplayName();
 					int currentChunkX = player.getLocation().getChunk().getX();
 					int currentChunkZ = player.getLocation().getChunk().getZ();
-					
+					// DEBUG
+					this.getLogger().info("Player standing in chunk "+"["+currentChunkX+","+currentChunkZ+"]");
 					ArrayList<int[]> localRIds = new ArrayList<int[]>();
 					ArrayList<int[]> localCIds = new ArrayList<int[]>();						
 					if (chunkIds.containsKey(playerName)) {
@@ -130,13 +131,33 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 	private boolean checkChunksMessage(String saveName, Player player) {		
 		if (regionIds.containsKey(player.getDisplayName()) && chunkIds.containsKey(player.getDisplayName())) {
 			boolean isClaimed = true;
+			// DEBUG
+			this.getLogger().info("CHUNK ARRAY SIZE:"+chunkIds.size());			
+			this.getLogger().info("IS GP INSTANCE NULL?:"+(GriefPrevention.instance == null));
+			this.getLogger().info("IS GP DATASTORE NULL?:"+(GriefPrevention.instance.dataStore == null));
+			this.getLogger().info("PLAYER DISPLAY NAME"+player.getDisplayName()+":UUID="+player.getUniqueId().toString());
+			
 			for(int[] cIds : chunkIds.get(player.getDisplayName())) {			
 				Claim claim = GriefPrevention.instance.dataStore.getClaimAt(new Location(player.getWorld(), cIds[0]*16, 0, cIds[1]*16), true, null);
 				if (claim == null || 
-						!(claim.getOwnerName().equals(player.getDisplayName()) || 
-						claim.getOwnerName().equals(player.getUniqueId().toString()) || 
-						claim.getOwnerName().equals(player.getDisplayName().toLowerCase()))) {
+						!(claim.getOwnerName().equalsIgnoreCase(player.getDisplayName()) || 
+						claim.getOwnerName().equalsIgnoreCase(player.getUniqueId().toString()))) {
 					isClaimed = false;
+					if (claim == null)
+					{
+						// DEBUG
+						this.getLogger().info("CLAIM INFO|isNull=true:ClaimAtLocationCheck="+(cIds[0]*16)+","+(cIds[1]*16));
+					}
+					else
+					{
+						// DEBUG
+						this.getLogger().info("CLAIM INFO|isNull=false:OwnerName="+claim.getOwnerName()+":ClaimAtLocationCheck="+(cIds[0]*16)+","+(cIds[1]*16));
+					}
+				}
+				else
+				{
+					// DEBUG
+					this.getLogger().info("CLAIM INFO|Success:OwnerName="+claim.getOwnerName()+":ClaimAtLocationCheck="+(cIds[0]*16)+","+(cIds[1]*16));
 				}
 			}
 			if (isClaimed) {				
