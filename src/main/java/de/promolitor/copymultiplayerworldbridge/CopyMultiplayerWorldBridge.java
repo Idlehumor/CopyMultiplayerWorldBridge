@@ -156,7 +156,7 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 			this.getLogger().info("CHUNK ARRAY SIZE:"+chunkIds.size());			
 			this.getLogger().info("IS GP INSTANCE NULL?:"+(GriefPrevention.instance == null));
 			this.getLogger().info("IS GP DATASTORE NULL?:"+(GriefPrevention.instance.dataStore == null));
-			this.getLogger().info("PLAYER DISPLAY NAME"+player.getUniqueId()+":UUID="+player.getUniqueId().toString());
+			this.getLogger().info("PLAYER NAME"+player.getName()+":PLAYER DISPLAY NAME"+player.getDisplayName()+":UUID="+player.getUniqueId().toString());
 			if (checkClaim) {
                 for (int[] cIds : chunkIds.get(player.getUniqueId())) {
                     Claim claim = GriefPrevention.instance.dataStore.getClaimAt(new Location(player.getWorld(), cIds[0] * 16, 0, cIds[1] * 16), true, null);
