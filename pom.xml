@@ -20,7 +20,7 @@
            <version>2.6</version>
            <configuration>
                <excludes>
-                   <exclude>src/main/java/de/promolitor/copymultiplayerworld/CopyMultiplayerWorld.java</exclude>
+                   <exclude>*/promolitor/copymultiplayerworld/</exclude>
                </excludes>
            </configuration>
        </plugin>
