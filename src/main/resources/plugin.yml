@@ -8,4 +8,5 @@ commands:
         usage: |
             /<command> add |
             /<command> dl added <save-name> |
+            /<command> dl claim <save-name> |
             /<command> dl radius <radius> <save-name>
