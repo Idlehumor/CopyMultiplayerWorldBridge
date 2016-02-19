@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.UUID;
+import java.lang.Math;
 
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -86,7 +87,7 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 					this.chunkIds.put(pUUID, localCIds);
 
 					return checkChunksMessage(args[2], player);
-				}
+				} 
 			} else if (args.length == 3) {
 				if (args[0].toLowerCase().equals("dl") && args[1].toLowerCase().equals("claim")) {
 					Claim claim = GriefPrevention.instance.dataStore.getClaimAt(((Player) sender).getLocation(), false, null);
@@ -109,7 +110,63 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 					}	
 					return true;					
 				}		
-			} else if (args.length == 1) {
+			} else if (args.length == 6) {
+                if(args[0].toLowerCase().equals("dl") && args[1].toLowerCase().equals("area")) {				
+					LinkedHashSet<int[]> localRIds = new LinkedHashSet<int[]>();
+					LinkedHashSet<int[]> localCIds = new LinkedHashSet<int[]>();
+                    int minCornerX = 0;
+                    int minCornerZ = 0;
+                    int maxCornerX = 0;
+                    int maxCornerZ = 0;
+                    try {
+                    minCornerX = Integer.parseInt(args[3]);
+                    minCornerZ = Integer.parseInt(args[4]);
+                    maxCornerX = Integer.parseInt(args[5]);
+                    maxCornerZ = Integer.parseInt(args[5]);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage("The area must be a number '/cmw dl area <xcoordleastcorner> <zcoordleastcorner> <xcoordmaxcorner> <zcoordmaxcorner>'");
+                        return true;
+                    }   
+                    if( minCornerX < 0) {
+                        if (maxCornerX < 0) {
+                        int centerX = Math.ceil(minCornerX/16) + Math.ceil(maxCornerX/16);
+                        } else {
+                          int centerX = Math.ceil(minCornerX/16) + Math.floor(maxCornerX/16);  
+                        }
+                    } else { 
+                      if (maxCornerX < 0) {
+                        int centerX = Math.floor(minCornerX/16) + Math.ceil(maxCornerX/16);
+                        } else {
+                          int centerX = Math.floor(minCornerX/16) + Math.floor(maxCornerX/16);  
+                        }  
+                    }
+                        if( minCornerZ < 0) {
+                            if (maxCornerZ < 0) {
+                        int centerZ = Math.ceil(minCornerZ/16) + Math.ceil(maxCornerZ/16);
+                        } else {
+                          int centerZ = Math.ceil(minCornerZ/16) + Math.floor(maxCornerZ/16);  
+                        }
+                    } else { 
+                      if (maxCornerZ < 0) {
+                        int centerZ = Math.floor(minCornerZ/16) + Math.ceil(maxCornerZ/16);
+                        } else {
+                          int centerZ = Math.floor(minCornerZ/16) + Math.floor(maxCornerZ/16);  
+                        }  
+                    }
+                    for (int x = 0; x < (Math.floor(Math.abs(minCornerX)/16) + Math.floor(Math.abs(maxCornerX)/16)); x++) {
+                        for (int z = 0; z <(Math.abs(minCornerZ) + Math.abs(maxCornerZ)); z++) {
+                            int[] chunk = {centerX - (Math.floor(Math.abs(minCornerX/16)) + Math.floor(Math.abs(maxCornerX)/16)) + x, centerZ - (Math.floor(Math.abs(minCornerZ)/16) + Math.floor(Math.abs(maxCornerZ)/16)) + z};
+                            localCIds.add(chunk);
+                            int regionX = (centerX - (Math.floor(Math.abs(minCornerX/16)) + Math.floor(Math.abs(maxCornerX)/16)) + x) >> 5;
+							int regionZ = (centerZ - (Math.floor(Math.abs(minCornerX/16)) + Math.floor(Math.abs(maxCornerZ)/16)) + z) >> 5;
+							int[] region = {regionX, regionZ};
+							localRIds.add(region);
+                        }
+                    }
+                    this.chunkIds.put(pUUID, localCIds);
+                    return checkChunksMessage(args[2], player);
+                }
+            } else if (args.length == 1) {
 				if (args[0].toLowerCase().equals("add")) {
 					int currentChunkX = player.getLocation().getChunk().getX();
 					int currentChunkZ = player.getLocation().getChunk().getZ();
