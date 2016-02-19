@@ -1,6 +1,6 @@
 package de.promolitor.copymultiplayerworld;
 
-import java.util.ArrayList;
+import java.util.LinkedHashSet;
 
 /**
  * Created by Slind on 17.02.2016.
@@ -8,7 +8,7 @@ import java.util.ArrayList;
 public class CopyMultiplayerWorld {
     public static CopyMultiplayerWorld instance;
 
-    public void sendIds(String displayName, String saveName, ArrayList<int[]> regionIds, ArrayList<int[]> chunkIds)
+    public void sendCoords(String uuid, String saveName, LinkedHashSet<int[]> chunkCoords)
     {
     }
 }

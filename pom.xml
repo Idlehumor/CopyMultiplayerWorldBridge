@@ -2,8 +2,11 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>de.promolitor</groupId>
   <artifactId>CopyMultiplayerWorldBridge</artifactId>
-  <version>0.0.2-SNAPSHOT</version>
+  <version>0.0.4-SNAPSHOT</version>
   <name>CopyMultiplayerWorldBridge</name>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
   <build>
    <plugins>
        <plugin>
@@ -31,6 +34,7 @@
          <filtering>true</filtering>
          <includes>
              <include>plugin.yml</include>
+             <include>config.yml</include>
          </includes>
      </resource>
    </resources>

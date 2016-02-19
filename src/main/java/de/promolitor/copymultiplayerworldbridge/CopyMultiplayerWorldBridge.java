@@ -1,37 +1,51 @@
 package de.promolitor.copymultiplayerworldbridge;
 
-import de.promolitor.copymultiplayerworld.CopyMultiplayerWorld;
-import me.ryanhamshire.GriefPrevention.Claim;
-import me.ryanhamshire.GriefPrevention.GriefPrevention;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.UUID;
+
 import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.*;
+import de.promolitor.copymultiplayerworld.CopyMultiplayerWorld;
+import me.ryanhamshire.GriefPrevention.Claim;
+import me.ryanhamshire.GriefPrevention.GriefPrevention;
 
 public final class CopyMultiplayerWorldBridge extends JavaPlugin implements Listener{
-	private static HashMap<UUID, ArrayList<int[]>> regionIds;
-	private static HashMap<UUID, ArrayList<int[]>> chunkIds;
+	private static HashMap<UUID, LinkedHashSet<int[]>> chunkIds;
+	private static Claim gpClaim;
+	private static FileConfiguration config;
+	private static int chunkMargin = 0;
+	private static int debugOutput = 0;
 	
 	@Override
 	public void onEnable()
 	{
-		this.getServer().getMessenger().registerOutgoingPluginChannel(this, "cmw");
-		// todo you might want to use a Set instead of list, so there is no need to check for duplicates (to be specific LinkedHashSet for iteration speed)
-		regionIds = new HashMap<UUID, ArrayList<int[]>>();
-		chunkIds = new HashMap<UUID, ArrayList<int[]>>();
+		// Saves a new default config only if it does not exist
+		this.saveDefaultConfig();
+		// Loads the config
+		config = this.getConfig();
+		chunkMargin = config.getInt("chunk_margin");
+		debugOutput = config.getInt("debug_output");
+		chunkIds = new HashMap<UUID, LinkedHashSet<int[]>>();
 		try {
 			Class.forName("de.promolitor.copymultiplayerworld.CopyMultiplayerWorld");
 		} catch (ClassNotFoundException e) {
 			this.getLogger().severe(
-					"CopyMultiplayerWorld library not found! Be sure to put the latest version of CopyMultiplayerWorld on the mods folder!");
-            //todo disable plugin
+					"CopyMultiplayerWorld library not found! Be sure to put the latest version of "
+					+ "CopyMultiplayerWorld on the mods folder!");
+			this.getPluginLoader().disablePlugin(this);
 		}
 	}
 	
@@ -40,32 +54,13 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 	{
 		if ((sender instanceof Player) && command.getName().equals("cmw")) {
 			Player player = (Player)sender;
-			if (args.length == 3) {
-				if (args[0].toLowerCase().equals("dl") && args[1].toLowerCase().equals("claim")) {
-					Claim claim = GriefPrevention.instance.dataStore.getClaimAt(((Player) sender).getLocation(), false, null);
-                    //todo check if player has build permission on claim
-					ArrayList<Chunk> chunks = claim.getChunks();
-
-					Set<int[]> localRIds = new HashSet<>();
-					Set<int[]> localCIds = new HashSet<>();
-
-                    // todo configurable margin
-					for(Chunk chunk : chunks) {
-						localCIds.add(new int[]{chunk.getX(), chunk.getZ()});
-						localRIds.add(new int[]{chunk.getX() >> 5, chunk.getZ() >> 5});
-					}
-					chunkIds.put(player.getUniqueId(), new ArrayList<>(localCIds));
-					regionIds.put(player.getUniqueId(), new ArrayList<>(localRIds));
-
-                    if (checkChunksMessage(args[2], player, false)) {
-                        return true;
-                    }
-				}
+			UUID pUUID = player.getUniqueId();
+			if (args.length == 4) { 
 				if (args[0].toLowerCase().equals("dl") && args[1].toLowerCase().equals("radius")) {
 					int currentChunkX = player.getLocation().getChunk().getX();
 					int currentChunkZ = player.getLocation().getChunk().getZ();					
-					ArrayList<int[]> localRIds = new ArrayList<int[]>();
-					ArrayList<int[]> localCIds = new ArrayList<int[]>();
+					LinkedHashSet<int[]> localRIds = new LinkedHashSet<int[]>();
+					LinkedHashSet<int[]> localCIds = new LinkedHashSet<int[]>();
 					
 					int radius = 0;
 					
@@ -75,7 +70,7 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 						player.sendMessage("The radius must be a number '/cmw dl radius <radius> <save-name>'");
 						return true;
 					}	
-
+	
 					int width = (radius*2)+1;
 					for (int x = 0; x < width; x++) {
 						for (int z = 0; z < width; z++) {
@@ -84,43 +79,44 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 							int regionX = (currentChunkX - radius + x) >> 5;
 							int regionZ = (currentChunkZ - radius + z) >> 5;
 							int[] region = {regionX, regionZ};
-							boolean isNotAddedYet = true;
-							for (int[] rIds : localRIds) {
-								if (rIds[0] == regionX && rIds[1] == regionZ) {
-									isNotAddedYet = false;
-								}
-							}
-							if (isNotAddedYet) {
-								localRIds.add(region);
-							}
+							localRIds.add(region);
 						}
 					}
 					
-					this.regionIds.put(player.getUniqueId(), localRIds);
-					this.chunkIds.put(player.getUniqueId(), localCIds);
-					
-					if (checkChunksMessage(args[3], player, true)) {
-						return true;
-					}
+					this.chunkIds.put(pUUID, localCIds);
+
+					return checkChunksMessage(args[2], player);
 				}
 			} else if (args.length == 3) {
-				if (args[0].toLowerCase().equals("dl") && args[1].toLowerCase().equals("added")) {
-					if (!checkChunksMessage(args[2], player, true)) {
+				if (args[0].toLowerCase().equals("dl") && args[1].toLowerCase().equals("claim")) {
+					Claim claim = GriefPrevention.instance.dataStore.getClaimAt(((Player) sender).getLocation(), false, null);
+
+					if (claim == null)
+					{
+						sender.sendMessage("You must be standing in a claim to use this command.");
+						return true;
+					}
+					
+					gpClaim = claim;
+
+					return checkChunksMessage(args[2], player);
+				} else if (args[0].toLowerCase().equals("dl") && args[1].toLowerCase().equals("added")) {
+					if (chunkIds.containsKey(pUUID)) {
+						checkChunksMessage(args[2], player);
+						return true;
+					} else {
 						sender.sendMessage("You must first add chunks with '/cmw add'");
 					}	
 					return true;					
-				}			
+				}		
 			} else if (args.length == 1) {
 				if (args[0].toLowerCase().equals("add")) {
-					UUID pUUID = player.getUniqueId();
 					int currentChunkX = player.getLocation().getChunk().getX();
 					int currentChunkZ = player.getLocation().getChunk().getZ();
-					// DEBUG
-					this.getLogger().info("Player standing in chunk "+"["+currentChunkX+","+currentChunkZ+"]");
-					ArrayList<int[]> localRIds = new ArrayList<int[]>();
-					ArrayList<int[]> localCIds = new ArrayList<int[]>();						
+					sendDebugOutput("Player standing in chunk "+"["+currentChunkX+","+currentChunkZ+"]");
+					LinkedHashSet<int[]> localRIds = new LinkedHashSet<int[]>();
+					LinkedHashSet<int[]> localCIds = new LinkedHashSet<int[]>();						
 					if (chunkIds.containsKey(pUUID)) {
-						localRIds = regionIds.get(pUUID);
 						localCIds = chunkIds.get(pUUID);
 					}
 					
@@ -129,17 +125,8 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 					int regionX = (currentChunkX) >> 5;
 					int regionZ = (currentChunkZ) >> 5;
 					int[] region = {regionX, regionZ};
-					boolean isNotAddedYet = true;
-					for (int[] rIds : localRIds) {
-						if (rIds[0] == regionX && rIds[1] == regionZ) {
-							isNotAddedYet = false;
-						}
-					}
-					if (isNotAddedYet) {
-						localRIds.add(region);
-					}
+					localRIds.add(region);
 
-					regionIds.put(pUUID, localRIds);
 					chunkIds.put(pUUID, localCIds);
 					sender.sendMessage("Chunk Added.");
 					return true;
@@ -149,50 +136,144 @@ public final class CopyMultiplayerWorldBridge extends JavaPlugin implements List
 		return false;
 	}
 	
-	private boolean checkChunksMessage(String saveName, Player player, boolean checkClaim) {
-		if (regionIds.containsKey(player.getUniqueId()) && chunkIds.containsKey(player.getUniqueId())) {
+	private void sendDebugOutput(String message) {
+		if (debugOutput == 1) { this.getLogger().info(message); }
+	}
+	
+	private boolean checkChunksMessage(String saveName, Player player) {
+		player.sendMessage("Checking for claims...");
+		UUID pUUID = player.getUniqueId();
+		if (chunkIds.containsKey(pUUID) || gpClaim != null) {
 			boolean isClaimed = true;
-			// DEBUG
-			this.getLogger().info("CHUNK ARRAY SIZE:"+chunkIds.size());			
-			this.getLogger().info("IS GP INSTANCE NULL?:"+(GriefPrevention.instance == null));
-			this.getLogger().info("IS GP DATASTORE NULL?:"+(GriefPrevention.instance.dataStore == null));
-			this.getLogger().info("PLAYER NAME"+player.getName()+":PLAYER DISPLAY NAME"+player.getDisplayName()+":UUID="+player.getUniqueId().toString());
-			if (checkClaim) {
-                for (int[] cIds : chunkIds.get(player.getUniqueId())) {
-                    Claim claim = GriefPrevention.instance.dataStore.getClaimAt(new Location(player.getWorld(), cIds[0] * 16, 0, cIds[1] * 16), true, null);
-                    if (claim == null ||
-                            !(claim.ownerID.equals(player.getUniqueId()) ||
-                                    claim.getOwnerName().equalsIgnoreCase(player.getUniqueId().toString()))) {
-                        isClaimed = false;
-                        if (claim == null) {
-                            // DEBUG
-                            this.getLogger().info("CLAIM INFO|isNull=true:ClaimAtLocationCheck=" + (cIds[0] * 16) + "," + (cIds[1] * 16));
-                        } else {
-                            // DEBUG
-                            this.getLogger().info("CLAIM INFO|isNull=false:OwnerName=" + claim.getOwnerName() + ":ClaimAtLocationCheck=" + (cIds[0] * 16) + "," + (cIds[1] * 16));
-                        }
-                    } else {
-                        // DEBUG
-                        this.getLogger().info("CLAIM INFO|Success:OwnerName=" + claim.getOwnerName() + ":ClaimAtLocationCheck=" + (cIds[0] * 16) + "," + (cIds[1] * 16));
-                    }
-                }
-            }
-			if (!checkClaim || isClaimed) {
-				CopyMultiplayerWorld.instance.sendIds(player.getName(), saveName, regionIds.get(player.getUniqueId()), chunkIds.get(player.getUniqueId()));
+			sendDebugOutput("CHUNK ARRAY SIZE:"+chunkIds.size());			
+			sendDebugOutput("IS GP INSTANCE NULL?:"+(GriefPrevention.instance == null));
+			sendDebugOutput("IS GP DATASTORE NULL?:"+(GriefPrevention.instance.dataStore == null));
+			sendDebugOutput("PLAYER NAME:"+player.getName()+":UUID="+pUUID.toString());
+			LinkedHashSet<int[]> claimChunks = chunkIds.get(pUUID);
+			boolean bypassCheck = false;
+			if (gpClaim != null && (gpClaim.ownerID.equals(pUUID) ||
+					gpClaim.getOwnerName().equalsIgnoreCase(player.getName()) ||
+					gpClaim.getOwnerName().equalsIgnoreCase(pUUID.toString()))) 
+			{
+				bypassCheck = true;	
+				claimChunks = new LinkedHashSet<int[]>();
+				ArrayList<Chunk> gpChunks = gpClaim.getChunks();
+				for (Chunk chunk : gpChunks) {
+					claimChunks.add(new int[]{chunk.getX(), chunk.getZ()});
+				}
+				claimChunks.addAll(this.getMarginIds(gpChunks));
+				gpClaim = null;
 			} else {
-				player.sendMessage("You may only download chunks that you have claimed. Make sure you are standing in your claimed area.");
+				if (gpClaim == null)
+				{
+		            for (int[] cIds : claimChunks) {
+		                Claim claim = GriefPrevention.instance.dataStore.getClaimAt(new Location(player.getWorld(), cIds[0] * 16, 0, cIds[1] * 16), true, null);
+		                // player name check is required if an admin changes the name of the claim owner to an offline player
+	                    if (claim == null) {
+	                    	sendDebugOutput("CLAIM INFO|isNull=true:ClaimAtLocationCheck=" + (cIds[0] * 16) + "," + (cIds[1] * 16));
+	                    } else {
+	
+	                    	sendDebugOutput("CLAIM INFO|isNull=false:OwnerName=" + claim.getOwnerName() + ":ClaimAtLocationCheck=" + (cIds[0] * 16) + "," + (cIds[1] * 16));
+	                        if (claim.allowAccess(player) == null && 
+	                        		claim.allowContainers(player) == null &&
+	                        		claim.allowBuild(player, Material.STONE) == null)
+	                        {
+	                        	sendDebugOutput("CLAIM INFO|Success:OwnerName=" + claim.getOwnerName() + ":ClaimAtLocationCheck=" + (cIds[0] * 16) + "," + (cIds[1] * 16));
+	                        	isClaimed = true;
+	                        }
+		                }
+		            }
+				} else {
+					sendDebugOutput("CLAIM INFO|isNull=false:OwnerName=" + gpClaim.getOwnerName());
+                    if (gpClaim.allowAccess(player) == null && 
+                    		gpClaim.allowContainers(player) == null &&
+                    		gpClaim.allowBuild(player, Material.STONE) == null)
+                    {
+        				claimChunks = new LinkedHashSet<int[]>();
+        				ArrayList<Chunk> gpChunks = gpClaim.getChunks();
+        				for (Chunk chunk : gpChunks) {
+        					claimChunks.add(new int[]{chunk.getX(), chunk.getZ()});
+        				}
+        				claimChunks.addAll(this.getMarginIds(gpChunks));
+        				
+        				sendDebugOutput("CLAIM INFO|Success:OwnerName=" + gpClaim.getOwnerName());
+                    	isClaimed = true;
+                    }
+    				gpClaim = null;
+				}
+			}
+			if (isClaimed || bypassCheck) {
+				player.sendMessage("Claims Checked");
+				player.sendMessage("Starting Download...");
+				CopyMultiplayerWorld.instance.sendCoords(pUUID.toString(), saveName, claimChunks);
+			} else {
+				player.sendMessage("You may only download chunks that you have claimed or have build permissions in. Make sure you are standing in your claimed area.");
 			}				
-			regionIds.remove(player.getUniqueId());
-			chunkIds.remove(player.getUniqueId());
+			chunkIds.remove(pUUID);
 			return true;
 		}
 		return false;
 	}
 	
+	private LinkedHashSet<int[]> getMarginIds(ArrayList<Chunk> chunks) {
+		LinkedHashSet<int[]> marginIds = new LinkedHashSet<int[]>();
+		
+		if (chunkMargin == 0)
+		{
+			return marginIds;
+		}
+				
+		int chunkCornerMinX = 0;
+		int chunkCornerMinZ = 0;
+		int chunkCornerMaxX = 0;
+		int chunkCornerMaxZ = 0;
+		
+		
+		for (Chunk chunk : chunks)
+		{
+			if (chunk.getX() < chunkCornerMinX) {
+				chunkCornerMinX = chunk.getX();
+			} else if (chunk.getX() > chunkCornerMaxX) {
+				chunkCornerMaxX = chunk.getX();
+			}
+			if (chunk.getZ() < chunkCornerMaxX) {
+				chunkCornerMaxX = chunk.getZ();				
+			} else if (chunk.getZ() > chunkCornerMaxZ) {
+				chunkCornerMaxZ = chunk.getZ();
+			}
+		}
+		
+		chunkCornerMinX -= chunkMargin;
+		chunkCornerMinZ -= chunkMargin;
+		chunkCornerMaxX += chunkMargin;
+		chunkCornerMaxZ += chunkMargin;
+		
+		// Gets the min and max margin chunks for X
+		for (int x = 0; x < chunkCornerMaxX-chunkCornerMinX; x++) {
+			for (int z = 0; z < chunkMargin; z++) {
+				marginIds.add(new int[]{chunkCornerMinX+x, chunkCornerMinZ+z});
+				marginIds.add(new int[]{chunkCornerMinX+x, chunkCornerMaxZ-z});
+			}
+		}		
+		// Gets the min and max margin chunks for Z
+		for (int x = 0; x < chunkMargin; x++) {
+			for (int z = chunkMargin; z < chunkCornerMaxZ-chunkCornerMinZ-chunkMargin; z++) {
+				marginIds.add(new int[]{chunkCornerMinX+x, chunkCornerMinZ+z});
+				marginIds.add(new int[]{chunkCornerMaxX-x, chunkCornerMaxZ+z});
+			}
+		}
+		
+		return marginIds;
+	}
+	
 	@EventHandler
 	public void onPlayerQuit(PlayerQuitEvent event) {
-		regionIds.remove(event.getPlayer().getUniqueId());
-		chunkIds.remove(event.getPlayer().getUniqueId());		
+		chunkIds.remove(event.getPlayer().getUniqueId());
+	}
+	
+	@EventHandler
+	public void onPlayerKick(PlayerKickEvent event) {
+		chunkIds.remove(event.getPlayer().getUniqueId());	
 	}
 	
 }
