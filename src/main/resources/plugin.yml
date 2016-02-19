@@ -9,4 +9,5 @@ commands:
             /<command> add |
             /<command> dl added <save-name> |
             /<command> dl claim <save-name> |
-            /<command> dl radius <radius> <save-name>
+            /<command> dl radius <radius> <save-name> |
+            /<command> dl area <xcoordleastcorner> <zcoordleastcorner> <xcoordmaxcorner> <zcoordmaxcorner>
